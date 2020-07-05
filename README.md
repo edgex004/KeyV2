@@ -1,64 +1,95 @@
+Note: this branch contains modifications in order to generate LP (Choc) keycaps for the Lily58 keyboard.
+
 # Parametric Mechanical Keycap Library
 
-![Welcome!](assets/welcome.png)
+![a slightly askew welcome picture](assets/welcome.png)
 
 This library is a keycap and keyset construction library for mechanical keyboards, written in openSCAD.
 
 Relevant links:
 * Thingiverse: https://www.thingiverse.com/thing:2783650
 * Shapeways: https://www.shapeways.com/designer/rsheldiii/creations
+* Buy me a coffee: https://ko-fi.com/rsheldiii, but only if you want to!
 
 ## How to run
 
-#### Thingiverse Customizer
+#### OpenSCAD Proper (recommended way)
 
-The easiest (though not the best) way to run this program is to boot it up in [Thingiverse's Customizer](https://www.thingiverse.com/apps/customizer/run?thing_id=2783650). Explanations of each option are provided, as well as some default variables. Twiddle the variables to see how the keycap changes!
+If you are technically inclined at all, this is definitely the best way to run the code. It's not very hard!
 
-#### OpenSCAD Customizer
+First, you'll need OpenSCAD: http://www.openscad.org/downloads.html. I highly recommend installing the development snapshot, as they generally support more features and are relatively stable. Development snapshots are listed in their own section on the downloads page.
 
-If you find that the Thingiverse Customizer is timing out, but you're not technically inclined enough to start programming in OpenSCAD, you can look into [getting OpenSCAD's customizer working](https://github.com/rsheldiii/KeyV2/wiki/Getting-the-OpenSCAD-Customizer-working).
-
-#### OpenSCAD Proper
-
-First, you'll need OpenSCAD: http://www.openscad.org/downloads.html. I highly recommend installing the development snapshot, as they are much further along than the current stable release (as of writing, 2015.03-3).
-
-After you have openSCAD installed, you need to download the code and run it. running `git clone https://github.com/rsheldiii/openSCAD-projects.git` if you have git, or downloading [this zip](https://github.com/rsheldiii/openSCAD-projects/archive/master.zip) and extracting the code should do it. Then all you need to do is open `keys.scad` with openSCAD and you are set! It is possible to edit this project with an external editor by checking off Design => Automatic Reload and Preview in OpenSCAD.
+After you have openSCAD installed, you need to download the code and run it. running `git clone https://github.com/rsheldiii/openSCAD-projects.git` if you have git, or downloading [this zip](https://github.com/rsheldiii/openSCAD-projects/archive/master.zip) and extracting the directory should do it. Then all you need to do is open `keys.scad` with openSCAD and you are set! It is possible to edit this project with an external editor by checking off Design => 'Automatic Reload and Preview' in OpenSCAD.
 
 All examples below assume you are running the library on your computer with OpenSCAD.
 
-## Let's Go! I wanna make a custom keycap!
+#### OpenSCAD Customizer
 
-At the highest level this library supports Cherry and Alps switches, and has pre-defined key profiles for SA, DSA, DCS, G20 and (some form of) OEM keycaps. `keys.scad` is meant as an entry point for everything but the most technical use. Pre-programmed key profiles can be found at the `key_profiles` directory.
+If you're not technically inclined enough to start programming in OpenSCAD (it's easier than you think), you can look into [getting OpenSCAD's customizer working](https://github.com/rsheldiii/KeyV2/wiki/Getting-the-OpenSCAD-Customizer-working).
 
-Every key starts with defaults that are overridden by each function call. The simplest cherry key you can make would be:
+`customizer.scad` is auto-generated from the other files in this repository due to a quirk with how OpenSCAD shows customizer settings. It should be perpetually kept up to date, but there may be some bugs. feel free to open an issue if you find one!
+
+#### Thingiverse Customizer
+
+The easiest and buggiest way to run this program is to boot it up in [Thingiverse's Customizer](https://www.thingiverse.com/apps/customizer/run?thing_id=2783650). Explanations of each option are provided, as well as some default variables. Twiddle the variables to see how the keycap changes!
+
+Unfortunately I don't think I can update the Thingiverse customizer without breaking it, so you don't get all the cool new features I've been developing over the past couple years.
+
+## High-level overview
+
+This library supports Cherry and Alps switches, and has pre-defined key profiles for SA, DSA, DCS, G20, Hi-Pro and (some form of) OEM keycaps. `keys.scad` is the entry point for everything but the most technical use. Pre-programmed key profiles can be found in the `key_profiles` directory.
+
+Every key starts with default settings (provided in `settings.scad`) that are overridden by each function call. The simplest key you can make would be:
 
 ```
-cherry() key();
+key();
 ```
 ![a bog-standard cherry key](assets/example1.JPG)
 
 
-
-which is a bog-standard DCS row 5 keycap. To change key profile or make varying width keys, you can use the row and unit length functions, like so:
+which is a bog-standard DCS row 5 (number / function row) keycap. To change how the key is generated, you can modify the settings directly or add predefined modifier functions like so:
 
 ```
-sa_row(2) 2u() cherry() key();
+// directly modified setting
+$stem_inset = 1;
+// settings changed through modifier function
+sa_row(2) 2u() key();
 ```
+
+You can chain as many modifier functions as you like!
 
 ![a 2 unit SA row 2 cherry key](assets/example2.JPG)
 
-## What if I want to customize my keycaps?
+## Modifier functions
 
-There is a bevy of supporting functions to customize your keycaps. You can add a brim to more easily print the stem, switch up the stem support type, make 2x2 keycaps for a POS system, add legends, rotate stems, and more. These functions can be found in `key_profiles/`, `key_sizes.scad`, `key_transformations.scad`, and `key_types.scad` currently, and can be referenced directly in `keys.scad`. For a full list of helper functions with explanations, [Check out the wiki!](https://github.com/rsheldiii/KeyV2/wiki/KeyV2-Helper-Documentation)
+There is a bevy of supporting functions to customize your keycaps. You can add a brim to more easily print the stem with `brimmed_stem_support`, make 2x2 keycaps with `2u() 2uh()`, add legends, rotate stems, and more. All these functions manipulate the settings available to you in [`settings.scad`](https://github.com/rsheldiii/KeyV2/blob/master/src/settings.scad), though [some of them](https://github.com/rsheldiii/KeyV2/blob/master/src/key_transformations.scad#L128) are quite complex.
+
+These modifier functions can be found in [`key_profiles/`](https://github.com/rsheldiii/KeyV2/blob/master/src/key_profiles) for different keycap profiles, [`key_types.scad`](https://github.com/rsheldiii/KeyV2/blob/master/src/key_types.scad) for predefined settings for common keys (spacebar, left shift, etc), [`key_sizes.scad`](https://github.com/rsheldiii/KeyV2/blob/master/src/key_sizes.scad) for common unit sizes, and [`key_transformations.scad`](https://github.com/rsheldiii/KeyV2/blob/master/src/key_transformations.scad) for everything else. I encourage you to do some sleuthing but for a list of (most) helper functions with explanations, [Check out the wiki!](https://github.com/rsheldiii/KeyV2/wiki/KeyV2-Helper-Documentation)
+
+These modifier functions may not cover every use case; in that case, you may have to write some SCAD yourself.
+
+## Layouts
+
+new to the library and still in a beta state, layouts allows you to generate an entire layout for a keyboard!
+
+It is recommended to use tined stem support and set `$extra_long_stem_support = true` if you plan on printing these keycaps.
+
+```
+60_percent_default("dcs") key();
+```
+
+![a standard 60 percent layout](assets/layout.png)
+
+layouts accept children, so you can use them as a chained function like other modifiers. Be wary of accidentally overriding something the layout does for you though.
 
 #### Example customizations
 
-If you wanted to generate some 2u stabilized keycaps for an Ergodox for instance, you could do something like this:
+Let's say you wanted to generate some 2u stabilized keycaps for an Ergodox, you could do something like this:
 
 ```
 legends = ["Enter", "Escape", "Tab", "Shift"];
 for(y=[0:3]) {
-  translate_u(0,y) 2u() dsa_row() stabilized() cherry() key(inset=true) { keytext(legends[y], [0,0], 6); }
+  translate_u(0,y) 2u() dsa_row() stabilized() cherry() legend(legends[y], [0,0, 6]) key();
 }
 ```
 
@@ -78,19 +109,21 @@ cherry() key() {
 
 Artisan support also supports _subtracting_ children by doing `key(inset=true) { ... }`, which is super helpful if you want to make keycaps with legends that are not text. The children will be placed just above the middle of the dish as per usual; you will need to translate them downwards (`ex translate([0,0,-1])`) to get them to 'dig in' to the top of the key.
 
+## Tips and tricks
+
+Looking for information or something specific? you could try checking out the [tips and tricks](TIPS_AND_TRICKS.md) section, or the [examples](/examples) directory.
+
 ## What if I want to get _really_ technical?
-
-At the base level this library should function well as a key profile design library. by loading up `src/key.scad` (notice no s) you can tweak variables in `src/settings.scad` to prototype your own profiles. There are currently 44 different settings to tweak in `src/settings.scad` including width height and depth of the keycap, dish tilt, top skew, fonts, wall thickness, etc. If you want to see the full list of settings, feel free to browse the file itself: [settings.scad](https://github.com/rsheldiii/KeyV2/blob/master/src/settings.scad) it has lots of comments to help you get started.
-
-### What if I want to get _even_ more technical than that?
 
 Now we're talkin!
 
-This library should be abstract enough to handle new dish types, keystems, and key shapes, in case you want to design your own Typewriter-style keycaps, support buckling spring keyboards or design some kind of triangular dished profile. `src/shapes.scad` `src/stems.scad` and `src/dishes.scad` all have a 'selector' module that should allow you to implement your own creations alongside what already exists in their constituent folders.
+At the base level this project should function well as an intensive key profile design library. by loading up `src/key.scad` (notice no s) you can tweak variables in `src/settings.scad` to prototype your own profiles. `key.scad` There are currently ~~44~~ a lot of different settings to tweak in `src/settings.scad` including width height and depth of the keycap, dish tilt, top skew, fonts, wall thickness, etc. If you want to see the full list of settings, feel free to browse the file itself: [settings.scad](https://github.com/rsheldiii/KeyV2/blob/master/src/settings.scad) it has lots of comments to help you get started.
+
+This library should also be abstract enough to handle new dish types, keystems, key layouts, key profiles, and key shapes, in case you want to design your own Typewriter-style keycaps, support buckling spring keyboards or design some kind of triangular dished profile. `src/shapes.scad` `src/stems.scad` and `src/dishes.scad` all have a 'selector' module that should allow you to implement your own creations alongside what already exists in their constituent folders.
 
 If you're interested in this, it may help to read the [Technical Design of a keycap](https://github.com/rsheldiii/KeyV2/wiki/Technical-Design-of-a-Keycap) wiki page.
 
-Here's an example of tweaking the settings and code to make a 'stoinstancep sign' key profile:
+Here's an example of tweaking the settings and code to make a 'stop sign' key profile:
 
 In `key_shape()` in `shapes.scad`:
 
@@ -150,3 +183,7 @@ That's it, if you have any questions feel free to open an issue or leave a comme
  * replace linear_extrude_shape_hull with skin_extrude_shape_hull or something, to enable concave extrusions
  * replace current ISO enter shape with one that works for `skin()`
  * generate dishes via math?
+
+## Contributions welcome
+
+ My lists of key profiles and layouts are not exhaustive at all, if you want to contribute feel free to make a PR with your changes and we can work together on getting it merged!

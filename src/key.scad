@@ -9,27 +9,45 @@ include <key_features.scad>
 
 include <libraries/geodesic_sphere.scad>
 
+// for skin hulls
+use <libraries/scad-utils/transformations.scad>
+use <libraries/scad-utils/lists.scad>
+use <libraries/scad-utils/shapes.scad>
+use <libraries/skin.scad>
+
 
 /* [Hidden] */
 SMALLEST_POSSIBLE = 1/128;
 $fs = .1;
 $unit = 19.05;
-blue = [.2667,.5882,1];
-color2 = [.5412, .4784, 1];
-purple = [.4078, .3569, .749];
-yellow = [1, .6941, .2];
-transparent_red = [1,0,0, 0.15];
 
 // key shape including dish. used as the ouside and inside shape in keytop(). allows for itself to be shrunk in depth and width / height
-module shape(thickness_difference, depth_difference){
+module shape(thickness_difference, depth_difference=0){
   dished(depth_difference, $inverted_dish) {
-    color(blue) shape_hull(thickness_difference, depth_difference, $inverted_dish ? 2 : 0);
+    color($primary_color) shape_hull(thickness_difference, depth_difference, $inverted_dish ? 2 : 0);
   }
 }
 
-// shape of the key but with soft, rounded edges. much more realistic, MUCH more complex. orders of magnitude more complex
+// shape of the key but with soft, rounded edges. no longer includes dish
+// randomly doesnt work sometimes
+// the dish doesn't _quite_ reach as far as it should
 module rounded_shape() {
-  color(blue) minkowski(){
+  dished(-$minkowski_radius, $inverted_dish) {
+    color($primary_color) minkowski(){
+      // half minkowski in the z direction
+      color($primary_color) shape_hull($minkowski_radius * 2, $minkowski_radius/2, $inverted_dish ? 2 : 0);
+      /* cube($minkowski_radius); */
+      sphere(r=$minkowski_radius, $fn=48);
+    }
+  }
+  /* %envelope(); */
+}
+
+// this function is more correct, but takes _forever_
+// the main difference is minkowski happens after dishing, meaning the dish is
+// also minkowski'd
+/* module rounded_shape() {
+  color($primary_color) minkowski(){
     // half minkowski in the z direction
     shape($minkowski_radius * 2, $minkowski_radius/2);
     difference(){
@@ -39,7 +57,8 @@ module rounded_shape() {
       }
     }
   }
-}
+} */
+
 
 
 // basic key shape, no dish, no inside
@@ -48,13 +67,50 @@ module rounded_shape() {
 // extra_slices is a hack to make inverted dishes still work
 module shape_hull(thickness_difference, depth_difference, extra_slices = 0){
   render() {
-    if ($linear_extrude_shape) {
+    if ($skin_extrude_shape) {
+      skin_extrude_shape_hull(thickness_difference, depth_difference, extra_slices);
+    } else if ($linear_extrude_shape) {
       linear_extrude_shape_hull(thickness_difference, depth_difference, extra_slices);
     } else {
       hull_shape_hull(thickness_difference, depth_difference, extra_slices);
     }
   }
 }
+
+// use skin() instead of successive hulls. much more correct, and looks faster
+// too, in most cases. successive hull relies on overlapping faces which are
+// not good. But, skin works on vertex sets instead of shapes, which makes it
+// a lot more difficult to use
+module skin_extrude_shape_hull(thickness_difference, depth_difference, extra_slices = 0 ) {
+  skin([
+    for (index = [0:$height_slices + extra_slices])
+      let(
+        progress = (index / $height_slices),
+        skew_this_slice = $top_skew * progress,
+        x_skew_this_slice = $top_skew_x * progress,
+        depth_this_slice = ($total_depth - depth_difference) * progress,
+        tilt_this_slice = -$top_tilt / $key_height * progress,
+        y_tilt_this_slice = $double_sculpted ? (-$top_tilt_y / $key_length * progress) : 0
+      )
+      skin_shape_slice(progress, thickness_difference, skew_this_slice, x_skew_this_slice, depth_this_slice, tilt_this_slice, y_tilt_this_slice)
+  ]);
+}
+
+function skin_shape_slice(progress, thickness_difference, skew_this_slice, x_skew_this_slice, depth_this_slice, tilt_this_slice, y_tilt_this_slice) =
+  transform(
+    translation([x_skew_this_slice,skew_this_slice,depth_this_slice]),
+    transform(
+      rotation([tilt_this_slice,y_tilt_this_slice,0]),
+        skin_key_shape([
+          total_key_width(0),
+          total_key_height(0),
+          ],
+          [$width_difference, $height_difference],
+          progress,
+          thickness_difference
+        )
+    )
+  );
 
 // corollary is hull_shape_hull
 // extra_slices unused, only to match argument signatures
@@ -66,7 +122,10 @@ module linear_extrude_shape_hull(thickness_difference, depth_difference, extra_s
   translate([0,$linear_extrude_height_adjustment,0]){
     linear_extrude(height = height, scale = [width_scale, height_scale]) {
         translate([0,-$linear_extrude_height_adjustment,0]){
-        key_shape(total_key_width(thickness_difference), total_key_height(thickness_difference));
+        key_shape(
+          [total_key_width(thickness_difference), total_key_height(thickness_difference)],
+          [$width_difference, $height_difference]
+        );
       }
     }
   }
@@ -83,11 +142,15 @@ module hull_shape_hull(thickness_difference, depth_difference, extra_slices = 0)
 
 module shape_slice(progress, thickness_difference, depth_difference) {
   skew_this_slice = $top_skew * progress;
-  depth_this_slice = ($total_depth - depth_difference) * progress;
-  tilt_this_slice = -$top_tilt / $key_height * progress;
+  x_skew_this_slice = $top_skew_x * progress;
 
-  translate([0, skew_this_slice, depth_this_slice]) {
-    rotate([tilt_this_slice,0,0]){
+  depth_this_slice = ($total_depth - depth_difference) * progress;
+
+  tilt_this_slice = -$top_tilt / $key_height * progress;
+  y_tilt_this_slice = $double_sculpted ? (-$top_tilt_y / $key_length * progress) : 0;
+
+  translate([x_skew_this_slice, skew_this_slice, depth_this_slice]) {
+    rotate([tilt_this_slice,y_tilt_this_slice,0]){
       linear_extrude(height = SMALLEST_POSSIBLE){
         key_shape(
           [
@@ -112,20 +175,44 @@ module inside() {
 }
 
 // put something at the top of the key, with no adjustments for dishing
-module top_placement(depth_difference) {
-  translate([$dish_skew_x, $top_skew + $dish_skew_y, $total_depth - depth_difference]){
-    rotate([-$top_tilt / $key_height,0,0]){
+module top_placement(depth_difference=0) {
+  top_tilt_by_height = -$top_tilt / $key_height;
+  top_tilt_y_by_length = $double_sculpted ? (-$top_tilt_y / $key_length) : 0;
+
+  minkowski_height = $rounded_key ? $minkowski_radius : 0;
+
+  translate([$top_skew_x + $dish_skew_x, $top_skew + $dish_skew_y, $total_depth - depth_difference + minkowski_height/2]){
+    rotate([top_tilt_by_height, top_tilt_y_by_length,0]){
       children();
+    }
+  }
+}
+
+module front_placement() {
+  // all this math is to take top skew and tilt into account
+  // we need to find the new effective height and depth of the top, front lip
+  // of the keycap to find the angle so we can rotate things correctly into place
+  total_depth_difference = sin(-$top_tilt) * (top_total_key_height()/2);
+  total_height_difference = $top_skew + (1 - cos(-$top_tilt)) * (top_total_key_height()/2);
+
+  angle = atan2(($total_depth - total_depth_difference), ($height_difference/2 + total_height_difference));
+  hypotenuse = ($total_depth -total_depth_difference) / sin(angle);
+
+  translate([0,-total_key_height()/2,0]) {
+    rotate([-(90-angle), 0, 0]) {
+      translate([0,0,hypotenuse/2]){
+        children();
+      }
     }
   }
 }
 
 // just to DRY up the code
 module _dish() {
-  dish(top_total_key_width() + $dish_overdraw_width, top_total_key_height() + $dish_overdraw_height, $dish_depth, $inverted_dish);
+  color($secondary_color) dish(top_total_key_width() + $dish_overdraw_width, top_total_key_height() + $dish_overdraw_height, $dish_depth, $inverted_dish);
 }
 
-module envelope(depth_difference) {
+module envelope(depth_difference=0) {
   s = 1.5;
   hull(){
     cube([total_key_width() * s, total_key_height() * s, 0.01], center = true);
@@ -135,6 +222,7 @@ module envelope(depth_difference) {
   }
 }
 
+// I think this is unused
 module dished_for_show() {
   difference(){
     union() {
@@ -149,7 +237,7 @@ module dished_for_show() {
 // for when you want to take the dish out of things
 // used for adding the dish to the key shape and making sure stems don't stick out the top
 // creates a bounding box 1.5 times larger in width and height than the keycap.
-module dished(depth_difference, inverted = false) {
+module dished(depth_difference = 0, inverted = false) {
   intersection() {
     children();
     difference(){
@@ -179,7 +267,7 @@ module keytext(text, position, font_size, depth) {
   woffset = (top_total_key_width()/3.5) * position[0];
   hoffset = (top_total_key_height()/3.5) * -position[1];
   translate([woffset, hoffset, -depth]){
-    linear_extrude(height=$dish_depth){
+    color($tertiary_color) linear_extrude(height=$dish_depth){
       text(text=text, font=$font, size=font_size, halign="center", valign="center");
     }
   }
@@ -197,15 +285,15 @@ module keystem_positions(positions) {
 
 module support_for(positions, stem_type) {
   keystem_positions(positions) {
-    color(yellow) supports($support_type, stem_type, $stem_throw, $total_depth - $stem_throw);
+    color($tertiary_color) supports($support_type, stem_type, $stem_throw, $total_depth - $stem_throw);
   }
 }
 
 module stems_for(positions, stem_type) {
   keystem_positions(positions) {
-    color(yellow) stem(stem_type, $total_depth, $stem_slop);
+    color($tertiary_color) stem(stem_type, $total_depth, $stem_slop);
     if ($stem_support_type != "disable") {
-      color(color2) stem_support($stem_support_type, stem_type, $stem_support_height, $stem_slop);
+      color($quaternary_color) stem_support($stem_support_type, stem_type, $stem_support_height, $stem_slop);
     }
   }
 }
@@ -227,9 +315,31 @@ module cherry_keyswitch() {
 //approximate (fully depressed) cherry key to check clearances
 module clearance_check() {
   if($stem_type == "cherry" || $stem_type == "cherry_rounded"){
-    color(transparent_red){
+    color($warning_color){
       translate([0,0,3.6 + $stem_inset - 5]) {
         cherry_keyswitch();
+      }
+    }
+  }
+}
+
+module legends(depth=0) {
+  if (len($front_legends) > 0) {
+    front_placement() {
+      if (len($front_legends) > 0) {
+        for (i=[0:len($front_legends)-1]) {
+          rotate([90,0,0]) keytext($front_legends[i][0], $front_legends[i][1], $front_legends[i][2], depth);
+  		  }
+	    }
+    }
+  }
+  if (len($legends) > 0) {
+    top_of_key() {
+      // outset legend
+      if (len($legends) > 0) {
+        for (i=[0:len($legends)-1]) {
+          keytext($legends[i][0], $legends[i][1], $legends[i][2], depth);
+        }
       }
     }
   }
@@ -238,14 +348,8 @@ module clearance_check() {
 // legends / artisan support
 module artisan(depth) {
   top_of_key() {
-    // outset legend
-    if (len($legends) > 0) {
-      for (i=[0:len($legends)-1]) {
-        keytext($legends[i][0], $legends[i][1], $legends[i][2], depth);
-      }
-    }
     // artisan objects / outset shape legends
-    children();
+    color($secondary_color) children();
   }
 }
 
@@ -274,23 +378,25 @@ module key(inset = false) {
       keytop();
       if($key_bump) top_of_key() keybump($key_bump_depth, $key_bump_edge);
       // additive objects at the top of the key
-      if(!inset) artisan() children();
+      if(!inset) artisan(0) children();
+      if($outset_legends) legends(0);
       // render the clearance check if it's enabled, but don't have it intersect with anything
       if ($clearance_check) %clearance_check();
     }
 
     // subtractive objects at the top of the key
-    if (inset) artisan(0.3) children();
+    if (inset) artisan($inset_legend_depth) children();
+    if(!$outset_legends) legends($inset_legend_depth);
     // subtract the clearance check if it's enabled, letting the user see the
     // parts of the keycap that will hit the cherry switch
-    if ($clearance_check) clearance_check();
+    if ($clearance_check) %clearance_check();
   }
 
   // both stem and support are optional
   if ($stem_type != "disable" || ($stabilizers != [] && $stabilizer_type != "disable")) {
     dished($keytop_thickness, $inverted_dish) {
       translate([0, 0, $stem_inset]) {
-        /* if ($stabilizer_type != "disable") stems_for($stabilizers, $stabilizer_type); */
+        if ($stabilizer_type != "disable") stems_for($stabilizers, $stabilizer_type);
         if ($stem_type != "disable") {
           stems_for($stabilizers, $stabilizer_type);
         }
@@ -321,4 +427,6 @@ module example_key(){
   key();
 }
 
-example_key();
+if (!$using_customizer) {
+  example_key();
+}

@@ -1,4 +1,4 @@
-module oem_row(n=3) {
+module oem_row(row=3, column = 0) {
   $bottom_key_width = 18.05;
   $bottom_key_height = 18.05;
   $width_difference = 5.8;
@@ -10,24 +10,27 @@ module oem_row(n=3) {
   $top_skew = 1.75;
   $stem_inset = 1.2;
 
-  if (n == 5) {
-    $total_depth = 11.2;
+  $top_tilt_y = side_tilt(column);
+  extra_height =  $double_sculpted ? extra_side_tilt_height(column) : 0;
+
+  if (row == 5 || row == 0) {
+    $total_depth = 11.2 + extra_height;
     $top_tilt = -3;
     children();
-  } else if (n == 1) {
-    $total_depth = 9.45;
+  } else if (row == 1) {
+    $total_depth = 9.45 + extra_height;
     $top_tilt = 1;
     children();
-  } else if (n == 2) {
-    $total_depth = 9;
+  } else if (row == 2) {
+    $total_depth = 9 + extra_height;
     $top_tilt = 6;
     children();
-  } else if (n == 3) {
-    $total_depth = 9.25;
+  } else if (row == 3) {
+    $total_depth = 9.25 + extra_height;
     $top_tilt = 9;
     children();
-  } else if (n == 4) {
-    $total_depth = 9.25;
+  } else if (row == 4) {
+    $total_depth = 9.25 + extra_height;
     $top_tilt = 10;
     children();
   } else {
